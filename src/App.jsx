@@ -140,6 +140,12 @@ const ColorAnalysis = () => {
       const imageUrl = response.data.body;
       console.log("Received image URL from API:", imageUrl);
 
+      if (response.data.body.statusCode == 500) {
+        setApiError("No face detected");
+        setIsLoading(false);
+        return;
+      }
+
       if (imageUrl) {
         mixpanel.track("Picture Generated", { imageUrl: imageUrl });
       }
@@ -152,7 +158,6 @@ const ColorAnalysis = () => {
       scrollToResult();
     } catch (error) {
       console.error("Error:", error);
-      setApiError(error.message);
     }
     setIsLoading(false);
   };
@@ -219,7 +224,8 @@ const ColorAnalysis = () => {
               Try The AI PS2 Style Filter
             </Typography>
             <Typography variant="subtitle1" align="center" color="white">
-              Upload your image and let our AI take you back to the 2000s.
+              Upload your image and let our AI take you back to the 2000s. (Only
+              images with faces in it will work)
             </Typography>
           </Box>
           <Box my={4} textAlign="center">
@@ -271,6 +277,11 @@ const ColorAnalysis = () => {
                 </Box>
               </Grid>
             </Grid>
+          )}
+          {apiError && (
+            <Typography variant="body1" align="center" color="white">
+              {apiError}
+            </Typography>
           )}
           {!selectedImage && (
             <Grid container spacing={4}>
