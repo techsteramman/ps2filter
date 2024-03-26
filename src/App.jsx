@@ -16,6 +16,13 @@ import two from "../assets/2.webp";
 import three from "../assets/3.webp";
 import four from "../assets/4.webp";
 import five from "../assets/5.webp";
+import mixpanel from "mixpanel-browser";
+
+mixpanel.init("947e491d9c2d4805b596f7bf350c3370", {
+  debug: true,
+  track_pageview: true,
+  persistence: "localStorage",
+});
 
 const theme = createTheme({
   typography: {
@@ -46,6 +53,7 @@ const ColorAnalysis = () => {
   const resultRef = useRef(null);
 
   const handleImageUpload = async (event) => {
+    mixpanel.track("Generate Clicked");
     const file = event.target.files[0];
     const allowedTypes = [
       "image/jpeg",
@@ -131,6 +139,10 @@ const ColorAnalysis = () => {
       );
       const imageUrl = response.data.body;
       console.log("Received image URL from API:", imageUrl);
+
+      if (imageUrl) {
+        mixpanel.track("Picture Generated", { imageUrl: imageUrl });
+      }
 
       // Add watermark to the image
       const watermarkedImageUrl = await addWatermark(imageUrl);
