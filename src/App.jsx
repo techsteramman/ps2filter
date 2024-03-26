@@ -41,102 +41,139 @@ const UploadButton = styled(Button)({
 
 const ColorAnalysis = () => {
   const [selectedImage, setSelectedImage] = useState(null);
-  const [analysisResult, setAnalysisResult] = useState("");
   const [apiError, setApiError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const resultRef = useRef(null);
 
   const handleImageUpload = async (event) => {
-    document.getElementById("image-upload").classList.remove("hovered");
-    const files = event.target.files;
+    const file = event.target.files[0];
     const allowedTypes = [
       "image/jpeg",
       "image/png",
       "image/gif",
       "image/webp",
       "image/heic",
-      "image/heif",
     ];
-    const maxSizeInBytes = 15 * 1024 * 1024; // 5 MB
-    const selectedImages = [];
+    const maxSizeInBytes = 5 * 1024 * 1024; // 5 MB
 
-    setIsLoading(true);
-
-    // Check if the number of selected files exceeds 5
-    if (files.length > 5) {
-      alert("Please select up to 5 images.");
-      event.target.value = null; // Reset the input to clear the selected files
-      return;
-    }
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (
-        file &&
-        allowedTypes.includes(file.type) &&
-        file.size <= maxSizeInBytes
-      ) {
-        try {
-          let convertedFile = file;
-          if (file.type === "image/heic" || file.type === "image/heif") {
-            // Convert HEIC to JPEG
-            convertedFile = await heic2any({
-              blob: file,
-              toType: "image/jpeg",
-              quality: 0.8,
-            });
-          }
-          selectedImages.push(convertedFile);
-          if (selectedImages.length === files.length) {
-            try {
-              await uploadImages(selectedImages);
-            } catch (error) {
-              console.error("Error uploading images:", error);
-              alert("Error uploading images. Please try again.");
-            }
-          }
-        } catch (error) {
-          console.error("Error converting image:", error);
-          alert("Error converting image. Please try again.");
+    if (
+      file &&
+      allowedTypes.includes(file.type) &&
+      file.size <= maxSizeInBytes
+    ) {
+      try {
+        let convertedFile;
+        if (file.type === "image/heic" || file.type === "image/heif") {
+          // Convert HEIC to JPEG
+          convertedFile = await heic2any({
+            blob: file,
+            toType: "image/jpeg",
+            quality: 0.8,
+          });
+        } else if (file.type === "image/webp") {
+          // Convert WebP to JPEG
+          convertedFile = await convertWebpToJpeg(file);
         }
-      } else {
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const mimeType = convertedFile ? convertedFile.type : file.type;
+          sendImageToAPI(reader.result, mimeType);
+        };
+        reader.readAsDataURL(convertedFile || file);
+      } catch (error) {
+        console.error("Error converting image:", error);
         alert(
-          `File ${file.name} is not a valid image file (JPEG, PNG, GIF, WebP, or HEIC) or exceeds the size limit of 5 MB.`,
+          "Error converting image. Please try again with a different image.",
         );
       }
+    } else {
+      alert(
+        "Please upload a valid image file (JPEG, PNG, GIF, WebP, or HEIC) under 5 MB.",
+      );
     }
   };
 
-  const uploadImages = async (images) => {
-    try {
-      const uniqueId = uuidv4();
-      const imageTypes = images.map((image) => image.type);
-      const response = await axios.post(
-        "https://oobi2u3h7i.execute-api.ap-northeast-1.amazonaws.com/production/upload",
-        { count: images.length, uniqueId: uniqueId, imageTypes: imageTypes },
-      );
-      console.log(response.data);
-      const presignedUrls = response.data.body;
-      const uploadPromises = images.map(async (image, index) => {
-        const url = presignedUrls[index];
-        await fetch(url, {
-          method: "PUT",
-          body: image,
-          headers: {
-            "Content-Type": image.type,
+  // Function to convert WebP to JPEG using Canvas API
+  const convertWebpToJpeg = (webpFile) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, img.width, img.height);
+        canvas.toBlob(
+          (blob) => {
+            resolve(new File([blob], "image.jpg", { type: "image/jpeg" }));
           },
-        });
-        return url;
-      });
-      const uploadedUrls = await Promise.all(uploadPromises);
-      console.log("Uploaded image URLs:", uploadedUrls);
-      // Redirect to Stripe payment page
-      const stripeUrl = `https://buy.stripe.com/cN2bKMeoogur8tq149?client_reference_id=${uniqueId}`;
-      window.location.href = stripeUrl;
+          "image/jpeg",
+          0.8,
+        );
+      };
+      img.onerror = (error) => {
+        reject(error);
+      };
+      img.src = URL.createObjectURL(webpFile);
+    });
+  };
+
+  const sendImageToAPI = async (base64Image, mimeType) => {
+    setIsLoading(true);
+    try {
+      const response = await axios.post(
+        "https://oobi2u3h7i.execute-api.ap-northeast-1.amazonaws.com/production/free",
+        {
+          image: base64Image.split(",")[1],
+          media_type: mimeType,
+        },
+      );
+      const imageUrl = response.data.body;
+      console.log("Received image URL from API:", imageUrl);
+
+      // Add watermark to the image
+      const watermarkedImageUrl = await addWatermark(imageUrl);
+
+      setSelectedImage(watermarkedImageUrl);
+      setApiError(null);
+      scrollToResult();
     } catch (error) {
-      throw new Error("Failed to upload images: " + error.message);
+      console.error("Error:", error);
+      setApiError(error.message);
     }
     setIsLoading(false);
+  };
+
+  const addWatermark = async (imageUrl) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        // Draw the image
+        ctx.drawImage(img, 0, 0);
+
+        // Add watermark
+        ctx.font = "50px Arial";
+        ctx.fillStyle = "rgba(255, 255, 255, 1)";
+        const text = "www.ps2filter.fun";
+        const textWidth = ctx.measureText(text).width;
+        ctx.fillText(text, canvas.width - textWidth - 10, canvas.height - 10);
+
+        const watermarkedImageUrl = canvas.toDataURL("image/jpeg");
+        resolve(watermarkedImageUrl);
+      };
+      img.onerror = (error) => {
+        reject(error);
+      };
+      img.src = imageUrl;
+    });
   };
 
   const scrollToResult = () => {
@@ -180,7 +217,6 @@ const ColorAnalysis = () => {
               onChange={handleImageUpload}
               style={{ display: "none" }}
               id="image-upload"
-              multiple
             />
             <label htmlFor="image-upload">
               <UploadButton
@@ -191,89 +227,119 @@ const ColorAnalysis = () => {
                 {isLoading ? (
                   <CircularProgress size={24} style={{ color: "white" }} />
                 ) : (
-                  "Upload Images (max 5)"
+                  "Upload Image"
                 )}
               </UploadButton>
             </label>
           </Box>
-          <Grid container spacing={4}>
-            <Grid item xs={12} md={6}>
-              <Box
-                mt={4}
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-              >
-                <img
-                  src={one}
-                  alt="Selected"
-                  style={{
-                    maxWidth: "100%",
-                    height: "auto",
-                    borderRadius: 8,
-                    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                  }}
-                />
-              </Box>
+          {selectedImage && (
+            <Grid
+              container
+              spacing={4}
+              justifyContent="center"
+              alignItems="center"
+            >
+              <Grid item xs={12} md={6}>
+                <Box
+                  mt={4}
+                  display="flex"
+                  justifyContent="center"
+                  alignItems="center"
+                >
+                  <img
+                    src={selectedImage}
+                    alt="Selected"
+                    style={{
+                      maxWidth: "100%",
+                      height: "auto",
+                      borderRadius: 8,
+                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                    }}
+                  />
+                </Box>
+              </Grid>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <Box
-                mt={4}
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-              >
-                <img
-                  src={two}
-                  alt="Selected"
-                  style={{
-                    maxWidth: "100%",
-                    height: "auto",
-                    borderRadius: 8,
-                    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                  }}
-                />
-              </Box>
+          )}
+          {!selectedImage && (
+            <Grid container spacing={4}>
+              <Grid item xs={12} md={6}>
+                <Box
+                  mt={4}
+                  display="flex"
+                  justifyContent="center"
+                  alignItems="center"
+                >
+                  <img
+                    src={one}
+                    alt="Selected"
+                    style={{
+                      maxWidth: "100%",
+                      height: "auto",
+                      borderRadius: 8,
+                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                    }}
+                  />
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Box
+                  mt={4}
+                  display="flex"
+                  justifyContent="center"
+                  alignItems="center"
+                >
+                  <img
+                    src={two}
+                    alt="Selected"
+                    style={{
+                      maxWidth: "100%",
+                      height: "auto",
+                      borderRadius: 8,
+                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                    }}
+                  />
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Box
+                  mt={4}
+                  display="flex"
+                  justifyContent="center"
+                  alignItems="center"
+                >
+                  <img
+                    src={three}
+                    alt="Selected"
+                    style={{
+                      maxWidth: "100%",
+                      height: "auto",
+                      borderRadius: 8,
+                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                    }}
+                  />
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Box
+                  mt={4}
+                  display="flex"
+                  justifyContent="center"
+                  alignItems="center"
+                >
+                  <img
+                    src={four}
+                    alt="Selected"
+                    style={{
+                      maxWidth: "100%",
+                      height: "auto",
+                      borderRadius: 8,
+                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                    }}
+                  />
+                </Box>
+              </Grid>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <Box
-                mt={4}
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-              >
-                <img
-                  src={three}
-                  alt="Selected"
-                  style={{
-                    maxWidth: "100%",
-                    height: "auto",
-                    borderRadius: 8,
-                    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                  }}
-                />
-              </Box>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Box
-                mt={4}
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-              >
-                <img
-                  src={four}
-                  alt="Selected"
-                  style={{
-                    maxWidth: "100%",
-                    height: "auto",
-                    borderRadius: 8,
-                    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                  }}
-                />
-              </Box>
-            </Grid>
-          </Grid>
+          )}
         </Container>
       </Box>
     </ThemeProvider>
