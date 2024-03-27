@@ -363,6 +363,14 @@ const ColorAnalysis = () => {
               </Grid>
             </Grid>
           )}
+          <Typography
+            variant="subtitle1"
+            align="center"
+            color="white"
+            paddingTop="10px"
+          >
+            Contact: ps2filter.fun@gmail.com
+          </Typography>
         </Container>
       </Box>
     </ThemeProvider>
