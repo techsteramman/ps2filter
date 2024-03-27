@@ -367,9 +367,14 @@ const ColorAnalysis = () => {
             variant="subtitle1"
             align="center"
             color="white"
-            paddingTop="10px"
+            paddingTop="25px"
           >
-            Contact: ps2filter.fun@gmail.com
+            <a
+              href="mailto:ps2filter.fun@gmail.com"
+              style={{ color: "inherit", textDecoration: "underline" }}
+            >
+              Contact Us
+            </a>
           </Typography>
         </Container>
       </Box>
