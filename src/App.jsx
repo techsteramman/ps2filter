@@ -237,12 +237,34 @@ const ColorAnalysis = () => {
         // Draw the image
         ctx.drawImage(img, 0, 0);
 
-        // Add watermark
-        ctx.font = "50px Arial";
-        ctx.fillStyle = "rgba(255, 255, 255, 1)";
-        const text = "www.ps2filter.fun";
-        const textWidth = ctx.measureText(text).width;
-        ctx.fillText(text, canvas.width - textWidth - 10, canvas.height - 10);
+        // Define watermark text and style
+        const watermarkText = "www.ps2filter.fun";
+        const watermarkFontSize = 50;
+        ctx.font = `${watermarkFontSize}px Arial`;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.5)"; // Adjust transparency as needed
+
+        // Calculate the number of repetitions and spacing between each watermark
+        const repeatX = Math.ceil(
+          canvas.width /
+            (ctx.measureText(watermarkText).width + watermarkFontSize * 2),
+        );
+        const repeatY = Math.ceil(canvas.height / (watermarkFontSize * 2));
+        const offsetX =
+          (canvas.width - repeatX * ctx.measureText(watermarkText).width) /
+          (repeatX + 1);
+        const offsetY =
+          (canvas.height - repeatY * watermarkFontSize) / (repeatY + 1);
+
+        // Add watermarks
+        for (let y = 0; y < repeatY; y++) {
+          for (let x = 0; x < repeatX; x++) {
+            ctx.fillText(
+              watermarkText,
+              offsetX + x * ctx.measureText(watermarkText).width + x * offsetX,
+              offsetY + y * watermarkFontSize + y * offsetY,
+            );
+          }
+        }
 
         const watermarkedImageUrl = canvas.toDataURL("image/jpeg");
         resolve(watermarkedImageUrl);
