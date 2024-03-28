@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import {
   Button,
   Container,
@@ -46,72 +46,14 @@ const UploadButton = styled(Button)({
   },
 });
 
-const WatermarkButton = styled(Button)({
-  background: "white",
-  borderRadius: 28,
-  border: 0,
-  color: "black",
-  height: 48,
-  padding: "0 30px",
-  transition: "0.3s",
-  "&:hover": {
-    background: "white",
-    boxShadow: "0 3px 5px 2px rgba(255, 255, 255, 0.5)",
-  },
-});
-
 const ColorAnalysis = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [apiError, setApiError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isWatermarkLoading, setIsWatermarkLoading] = useState(false);
   const resultRef = useRef(null);
-  const [imageKey, setImageKey] = useState(null);
-  const [showWatermarkButton, setShowWatermarkButton] = useState(true);
-
-  const getQueryParameter = (name, url) => {
-    if (!url) url = window.location.href;
-    name = name.replace(/[\[\]]/g, "\\$&");
-    const regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)");
-    const results = regex.exec(url);
-    if (!results) return null;
-    if (!results[2]) return "";
-    return decodeURIComponent(results[2].replace(/\+/g, " "));
-  };
-
-  const fetchSessionInfo = async (sessionId) => {
-    try {
-      const response = await axios.post(
-        "https://oobi2u3h7i.execute-api.ap-northeast-1.amazonaws.com/production/session", // Replace with your Lambda endpoint
-        { sessionId },
-      );
-
-      console.log(response);
-
-      if (response.data.statusCode === 200) {
-        setSelectedImage(response.data.body);
-        setShowWatermarkButton(false);
-        mixpanel.track("Succesful Watermark Removal");
-      } else {
-        console.log("Failed to fetch session information");
-      }
-    } catch (error) {
-      console.log("An error occurred while fetching session information");
-    }
-  };
-
-  useEffect(() => {
-    const sessionId = getQueryParameter("session_id");
-    if (sessionId) {
-      console.log("Session ID:", sessionId);
-      fetchSessionInfo(sessionId);
-      // Now you can use the session ID to fetch data or perform other actions
-    }
-  }, []);
 
   const handleImageUpload = async (event) => {
     mixpanel.track("Generate Clicked");
-    setShowWatermarkButton(false);
     const file = event.target.files[0];
     const allowedTypes = [
       "image/jpeg",
@@ -198,11 +140,6 @@ const ColorAnalysis = () => {
       const imageUrl = response.data.body;
       console.log("Received image URL from API:", imageUrl);
 
-      const key = imageUrl[0].match(/pbxt\/([^/]+)/)[1];
-      setImageKey(key);
-
-      setImageKey(key);
-
       if (response.data.body.statusCode == 500) {
         setApiError("No face detected");
         setIsLoading(false);
@@ -254,15 +191,6 @@ const ColorAnalysis = () => {
       };
       img.src = imageUrl;
     });
-  };
-
-  const handleWatermark = async (event) => {
-    mixpanel.track("Watermark Button Clicked");
-    setIsWatermarkLoading(true);
-    console.log(imageKey);
-    const stripeUrl = `https://buy.stripe.com/cN2bKMeoogur8tq149?client_reference_id=${imageKey}`;
-    window.location.href = stripeUrl;
-    setIsWatermarkLoading(false);
   };
 
   const scrollToResult = () => {
@@ -346,27 +274,6 @@ const ColorAnalysis = () => {
                       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
                     }}
                   />
-                </Box>
-                <Box my={4} textAlign="center">
-                  {selectedImage && showWatermarkButton && (
-                    <label htmlFor="watermark-button">
-                      <WatermarkButton
-                        variant="contained"
-                        component="span"
-                        disabled={isWatermarkLoading}
-                        onClick={handleWatermark} // Pass imageKey here
-                      >
-                        {isWatermarkLoading ? (
-                          <CircularProgress
-                            size={24}
-                            style={{ color: "white" }}
-                          />
-                        ) : (
-                          "Remove Watermark - $1"
-                        )}
-                      </WatermarkButton>
-                    </label>
-                  )}
                 </Box>
               </Grid>
             </Grid>
