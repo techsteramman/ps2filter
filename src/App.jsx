@@ -68,6 +68,7 @@ const ColorAnalysis = () => {
   const resultRef = useRef(null);
   const [imageKey, setImageKey] = useState(null);
   const [showWatermarkButton, setShowWatermarkButton] = useState(true);
+  const [isWatermarkedImage, setIsWatermarkedImage] = useState(true);
 
   const getQueryParameter = (name, url) => {
     if (!url) url = window.location.href;
@@ -90,6 +91,7 @@ const ColorAnalysis = () => {
 
       if (response.data.statusCode === 200) {
         setSelectedImage(response.data.body);
+        setIsWatermarkedImage(false);
         mixpanel.track("Succesful Watermark Removal");
       } else {
         console.log("Failed to fetch session information");
@@ -217,6 +219,7 @@ const ColorAnalysis = () => {
       setSelectedImage(watermarkedImageUrl);
       setApiError(null);
       scrollToResult();
+      setIsWatermarkedImage(true);
     } catch (error) {
       console.error("Error:", error);
     }
@@ -368,25 +371,27 @@ const ColorAnalysis = () => {
                   />
                 </Box>
                 <Box my={4} textAlign="center">
-                  {selectedImage && showWatermarkButton && (
-                    <label htmlFor="watermark-button">
-                      <WatermarkButton
-                        variant="contained"
-                        component="span"
-                        disabled={isWatermarkLoading}
-                        onClick={handleWatermark} // Pass imageKey here
-                      >
-                        {isWatermarkLoading ? (
-                          <CircularProgress
-                            size={24}
-                            style={{ color: "white" }}
-                          />
-                        ) : (
-                          "Remove Watermark - $1"
-                        )}
-                      </WatermarkButton>
-                    </label>
-                  )}
+                  {selectedImage &&
+                    showWatermarkButton &&
+                    isWatermarkedImage && (
+                      <label htmlFor="watermark-button">
+                        <WatermarkButton
+                          variant="contained"
+                          component="span"
+                          disabled={isWatermarkLoading}
+                          onClick={handleWatermark} // Pass imageKey here
+                        >
+                          {isWatermarkLoading ? (
+                            <CircularProgress
+                              size={24}
+                              style={{ color: "white" }}
+                            />
+                          ) : (
+                            "Remove Watermark - $1"
+                          )}
+                        </WatermarkButton>
+                      </label>
+                    )}
                 </Box>
               </Grid>
             </Grid>
