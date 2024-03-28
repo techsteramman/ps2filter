@@ -90,7 +90,6 @@ const ColorAnalysis = () => {
 
       if (response.data.statusCode === 200) {
         setSelectedImage(response.data.body);
-        setShowWatermarkButton(false);
         mixpanel.track("Succesful Watermark Removal");
       } else {
         console.log("Failed to fetch session information");
@@ -111,7 +110,6 @@ const ColorAnalysis = () => {
 
   const handleImageUpload = async (event) => {
     mixpanel.track("Generate Clicked");
-    setShowWatermarkButton(false);
     const file = event.target.files[0];
     const allowedTypes = [
       "image/jpeg",
