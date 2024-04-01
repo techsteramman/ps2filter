@@ -168,6 +168,7 @@ const ColorAnalysis = () => {
           const mimeType = convertedFile ? convertedFile.type : file.type;
           //sendImageToAPI(reader.result, mimeType);
           writeDb(uuid, reader.result);
+          console.log(reader.result);
         };
         reader.readAsDataURL(convertedFile || file);
       } catch (error) {
