@@ -46,20 +46,6 @@ const UploadButton = styled(Button)({
   },
 });
 
-const NewImageButton = styled(Button)({
-  background: "white",
-  borderRadius: 28,
-  border: 0,
-  color: "black",
-  height: 48,
-  padding: "0 30px",
-  transition: "0.3s",
-  "&:hover": {
-    background: "white",
-    boxShadow: "0 3px 5px 2px rgba(255, 255, 255, 0.5)",
-  },
-});
-
 const WatermarkButton = styled(Button)({
   background: "white",
   borderRadius: 28,
@@ -82,8 +68,7 @@ const ColorAnalysis = () => {
   const resultRef = useRef(null);
   const [imageKey, setImageKey] = useState(null);
   const [showWatermarkButton, setShowWatermarkButton] = useState(true);
-  const [isWatermarkedImage, setIsWatermarkedImage] = useState(false);
-  const [isProcessedImage, setIsProcessedImage] = useState(false);
+  const [isWatermarkedImage, setIsWatermarkedImage] = useState(true);
 
   const getQueryParameter = (name, url) => {
     if (!url) url = window.location.href;
@@ -117,16 +102,11 @@ const ColorAnalysis = () => {
   };
 
   useEffect(() => {
-    const sessionIdFromURL = getQueryParameter("session_id");
-    const sessionIdFromStorage = localStorage.getItem("sessionId");
-
-    console.log("session id " + sessionIdFromStorage);
-
-    // Check if session ID from URL is different from the one in local storage
-    if (sessionIdFromURL && sessionIdFromStorage !== sessionIdFromURL) {
-      console.log("Session ID:", sessionIdFromURL);
-      localStorage.setItem("sessionId", sessionIdFromURL); // Save session ID to local storage
-      readDb(sessionIdFromURL); // Call readDb if session ID is available and different
+    const sessionId = getQueryParameter("session_id");
+    if (sessionId) {
+      console.log("Session ID:", sessionId);
+      fetchSessionInfo(sessionId);
+      // Now you can use the session ID to fetch data or perform other actions
     }
   }, []);
 
@@ -166,8 +146,7 @@ const ColorAnalysis = () => {
         const reader = new FileReader();
         reader.onload = () => {
           const mimeType = convertedFile ? convertedFile.type : file.type;
-          //sendImageToAPI(reader.result, mimeType);
-          writeDb(uuid, reader.result);
+          sendImageToAPI(reader.result, mimeType);
         };
         reader.readAsDataURL(convertedFile || file);
       } catch (error) {
@@ -181,11 +160,6 @@ const ColorAnalysis = () => {
         "Please upload a valid image file (JPEG, PNG, GIF, WebP, or HEIC) under 5 MB.",
       );
     }
-  };
-
-  const handleNewImage = async () => {
-    window.history.replaceState({}, document.title, window.location.pathname);
-    window.location.reload();
   };
 
   // Function to convert WebP to JPEG using Canvas API
@@ -228,7 +202,8 @@ const ColorAnalysis = () => {
 
       const key = imageUrl[0].match(/pbxt\/([^/]+)/)[1];
       setImageKey(key);
-      setIsProcessedImage(true);
+
+      setImageKey(key);
 
       if (response.data.body.statusCode == 500) {
         setApiError("No face detected");
@@ -246,7 +221,7 @@ const ColorAnalysis = () => {
       setSelectedImage(watermarkedImageUrl);
       setApiError(null);
       scrollToResult();
-      //setIsWatermarkedImage(true);
+      setIsWatermarkedImage(true);
     } catch (error) {
       console.error("Error:", error);
     }
@@ -293,17 +268,8 @@ const ColorAnalysis = () => {
     setIsWatermarkLoading(false);
   };
 
-  const handleStripe = async (id) => {
-    mixpanel.track("Watermark Button Clicked");
-    setIsWatermarkLoading(true);
-    console.log(id);
-    const stripeUrl = `https://buy.stripe.com/cN2bKMeoogur8tq149?client_reference_id=${id}`;
-    window.location.href = stripeUrl;
-    setIsWatermarkLoading(false);
-  };
-
-  const writeDb = async (id, base64Image) => {
-    setIsLoading(true);
+  const writeToDB = async (id, base64Image) => {
+    setLoading(true);
 
     try {
       const response = await fetch(
@@ -316,15 +282,9 @@ const ColorAnalysis = () => {
           body: JSON.stringify({
             id: id,
             base64URL: base64Image,
-            operation: "write",
           }),
         },
       );
-
-      const responseData = await response.json();
-      console.log(responseData);
-
-      handleStripe(id);
 
       if (!response.ok) {
         throw new Error("Failed to write to DynamoDB");
@@ -332,39 +292,7 @@ const ColorAnalysis = () => {
     } catch (error) {
       console.error("Error writing to DynamoDB:", error);
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const readDb = async (id) => {
-    try {
-      const response = await fetch(
-        `https://oobi2u3h7i.execute-api.ap-northeast-1.amazonaws.com/production/db`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: id,
-            operation: "read",
-          }),
-        },
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch data from DynamoDB");
-      }
-
-      const responseData = await response.json();
-      console.log(responseData.body);
-
-      const mimeType = responseData.body.split(";")[0].split(":")[1];
-
-      console.log(mimeType);
-
-      sendImageToAPI(responseData.body, mimeType);
-    } catch (error) {
-      console.error("Error reading from DynamoDB:", error);
+      setLoading(false);
     }
   };
 
@@ -404,48 +332,27 @@ const ColorAnalysis = () => {
             </Typography>
           </Box>
           <Box my={4} textAlign="center">
-            {isProcessedImage ? (
-              <NewImageButton
+            <input
+              type="file"
+              accept="image/jpeg, image/png, image/gif, image/webp"
+              onChange={handleImageUpload}
+              style={{ display: "none" }}
+              id="image-upload"
+            />
+            <label htmlFor="image-upload">
+              <UploadButton
                 variant="contained"
+                component="span"
                 disabled={isLoading}
-                onClick={handleNewImage}
               >
                 {isLoading ? (
                   <CircularProgress size={24} style={{ color: "white" }} />
                 ) : (
-                  "New Image"
+                  "Upload Image"
                 )}
-              </NewImageButton>
-            ) : (
-              <>
-                <input
-                  type="file"
-                  accept="image/jpeg, image/png, image/gif, image/webp"
-                  onChange={handleImageUpload}
-                  style={{ display: "none" }}
-                  id="image-upload"
-                />
-                <label htmlFor="image-upload">
-                  <UploadButton
-                    variant="contained"
-                    component="span"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <CircularProgress size={24} style={{ color: "white" }} />
-                    ) : (
-                      "Upload Image"
-                    )}
-                  </UploadButton>
-                </label>
-              </>
-            )}
+              </UploadButton>
+            </label>
           </Box>
-          {isLoading ? (
-            <Typography variant="subtitle1" align="center" color="white">
-              DO NOT CLOSE/REFRESH WINDOW
-            </Typography>
-          ) : null}
           {selectedImage && (
             <Grid
               container
