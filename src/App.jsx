@@ -131,75 +131,75 @@ const ColorAnalysis = () => {
   }, []);
 
   const handleImageUpload = async (event) => {
-      mixpanel.track("Generate Clicked");
-      const file = event.target.files[0];
-      const allowedTypes = [
-        "image/jpeg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-        "image/heic",
-      ];
-      const maxSizeInBytes = 5 * 1024 * 1024; // 5 MB
+    mixpanel.track("Generate Clicked");
+    const file = event.target.files[0];
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "image/heic",
+    ];
+    const maxSizeInBytes = 5 * 1024 * 1024; // 5 MB
 
-      if (
-        file &&
-        allowedTypes.includes(file.type) &&
-        file.size <= maxSizeInBytes
-      ) {
-        try {
-          // Create a new HTMLImageElement to load the image
-          const img = new Image();
-          img.src = URL.createObjectURL(file);
+    if (
+      file &&
+      allowedTypes.includes(file.type) &&
+      file.size <= maxSizeInBytes
+    ) {
+      try {
+        // Create a new HTMLImageElement to load the image
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
 
-          img.onload = () => {
-            const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d");
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
 
-            // Set maximum width and height for the compressed image
-            const MAX_WIDTH = 800;
-            const MAX_HEIGHT = 600;
+          // Set maximum width and height for the compressed image
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 600;
 
-            // Calculate new dimensions while maintaining aspect ratio
-            let width = img.width;
-            let height = img.height;
+          // Calculate new dimensions while maintaining aspect ratio
+          let width = img.width;
+          let height = img.height;
 
-            if (width > MAX_WIDTH || height > MAX_HEIGHT) {
-              const aspectRatio = width / height;
+          if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+            const aspectRatio = width / height;
 
-              if (width > height) {
-                width = MAX_WIDTH;
-                height = width / aspectRatio;
-              } else {
-                height = MAX_HEIGHT;
-                width = height * aspectRatio;
-              }
+            if (width > height) {
+              width = MAX_WIDTH;
+              height = width / aspectRatio;
+            } else {
+              height = MAX_HEIGHT;
+              width = height * aspectRatio;
             }
+          }
 
-            // Set canvas dimensions
-            canvas.width = width;
-            canvas.height = height;
+          // Set canvas dimensions
+          canvas.width = width;
+          canvas.height = height;
 
-            // Draw the image onto the canvas with the new dimensions
-            ctx.drawImage(img, 0, 0, width, height);
+          // Draw the image onto the canvas with the new dimensions
+          ctx.drawImage(img, 0, 0, width, height);
 
-            // Get the compressed data URL from the canvas
-            const compressedDataURL = canvas.toDataURL(file.type);
+          // Get the compressed data URL from the canvas
+          const compressedDataURL = canvas.toDataURL(file.type);
 
-            const uuid = uuidv4();
-            writeDb(uuid, compressedDataURL);
-          };
-        } catch (error) {
-          console.error("Error compressing image:", error);
-          alert(
-            "Error compressing image. Please try again with a different image.",
-          );
-        }
-      } else {
+          const uuid = uuidv4();
+          writeDb(uuid, compressedDataURL);
+        };
+      } catch (error) {
+        console.error("Error compressing image:", error);
         alert(
-          "Please upload a valid image file (JPEG, PNG, GIF, WebP, or HEIC) under 5 MB.",
+          "Error compressing image. Please try again with a different image.",
         );
       }
+    } else {
+      alert(
+        "Please upload a valid image file (JPEG, PNG, GIF, WebP, or HEIC) under 5 MB.",
+      );
+    }
   };
 
   const handleNewImage = async () => {
@@ -344,7 +344,7 @@ const ColorAnalysis = () => {
       const responseData = await response.json();
       console.log(responseData);
 
-      //handleStripe(id);
+      handleStripe(id);
 
       if (!response.ok) {
         throw new Error("Failed to write to DynamoDB");
