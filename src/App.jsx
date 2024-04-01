@@ -168,7 +168,6 @@ const ColorAnalysis = () => {
           const mimeType = convertedFile ? convertedFile.type : file.type;
           //sendImageToAPI(reader.result, mimeType);
           writeDb(uuid, reader.result);
-          console.log(reader.result);
         };
         reader.readAsDataURL(convertedFile || file);
       } catch (error) {
@@ -305,6 +304,7 @@ const ColorAnalysis = () => {
 
   const writeDb = async (id, base64Image) => {
     setIsLoading(true);
+    console.log(base64Image);
 
     try {
       const response = await fetch(
