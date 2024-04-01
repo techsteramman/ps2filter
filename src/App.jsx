@@ -325,7 +325,7 @@ const ColorAnalysis = () => {
       const responseData = await response.json();
       console.log(responseData);
 
-      handleStripe(id);
+      //handleStripe(id);
 
       if (!response.ok) {
         throw new Error("Failed to write to DynamoDB");
