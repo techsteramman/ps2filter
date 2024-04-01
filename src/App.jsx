@@ -131,56 +131,75 @@ const ColorAnalysis = () => {
   }, []);
 
   const handleImageUpload = async (event) => {
-    mixpanel.track("Generate Clicked");
-    const file = event.target.files[0];
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-      "image/heic",
-    ];
-    const maxSizeInBytes = 5 * 1024 * 1024; // 5 MB
+      mixpanel.track("Generate Clicked");
+      const file = event.target.files[0];
+      const allowedTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+        "image/heic",
+      ];
+      const maxSizeInBytes = 5 * 1024 * 1024; // 5 MB
 
-    if (
-      file &&
-      allowedTypes.includes(file.type) &&
-      file.size <= maxSizeInBytes
-    ) {
-      try {
-        let convertedFile;
-        if (file.type === "image/heic" || file.type === "image/heif") {
-          // Convert HEIC to JPEG
-          convertedFile = await heic2any({
-            blob: file,
-            toType: "image/jpeg",
-            quality: 0.8,
-          });
-        } else if (file.type === "image/webp") {
-          // Convert WebP to JPEG
-          convertedFile = await convertWebpToJpeg(file);
+      if (
+        file &&
+        allowedTypes.includes(file.type) &&
+        file.size <= maxSizeInBytes
+      ) {
+        try {
+          // Create a new HTMLImageElement to load the image
+          const img = new Image();
+          img.src = URL.createObjectURL(file);
+
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            // Set maximum width and height for the compressed image
+            const MAX_WIDTH = 800;
+            const MAX_HEIGHT = 600;
+
+            // Calculate new dimensions while maintaining aspect ratio
+            let width = img.width;
+            let height = img.height;
+
+            if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+              const aspectRatio = width / height;
+
+              if (width > height) {
+                width = MAX_WIDTH;
+                height = width / aspectRatio;
+              } else {
+                height = MAX_HEIGHT;
+                width = height * aspectRatio;
+              }
+            }
+
+            // Set canvas dimensions
+            canvas.width = width;
+            canvas.height = height;
+
+            // Draw the image onto the canvas with the new dimensions
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Get the compressed data URL from the canvas
+            const compressedDataURL = canvas.toDataURL(file.type);
+
+            const uuid = uuidv4();
+            writeDb(uuid, compressedDataURL);
+          };
+        } catch (error) {
+          console.error("Error compressing image:", error);
+          alert(
+            "Error compressing image. Please try again with a different image.",
+          );
         }
-
-        const uuid = uuidv4();
-
-        const reader = new FileReader();
-        reader.onload = () => {
-          const mimeType = convertedFile ? convertedFile.type : file.type;
-          //sendImageToAPI(reader.result, mimeType);
-          writeDb(uuid, reader.result);
-        };
-        reader.readAsDataURL(convertedFile || file);
-      } catch (error) {
-        console.error("Error converting image:", error);
+      } else {
         alert(
-          "Error converting image. Please try again with a different image.",
+          "Please upload a valid image file (JPEG, PNG, GIF, WebP, or HEIC) under 5 MB.",
         );
       }
-    } else {
-      alert(
-        "Please upload a valid image file (JPEG, PNG, GIF, WebP, or HEIC) under 5 MB.",
-      );
-    }
   };
 
   const handleNewImage = async () => {
